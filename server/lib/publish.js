@@ -7,6 +7,7 @@ const config = require('../config');
 const db = require('./db');
 const { extractZipSafe } = require('./zip');
 const { renderMarkdown, extractTitle } = require('./markdown');
+const { decodeUploadFilename } = require('./filename');
 
 const nanoid = customAlphabet('23456789abcdefghijkmnpqrstuvwxyz', 10);
 
@@ -46,7 +47,9 @@ function publish({ username, file }) {
     throw Object.assign(new Error('请上传文件'), { status: 400 });
   }
 
-  const kind = detectKind(file.originalname, file.mimetype);
+  const originalName = decodeUploadFilename(file.originalname);
+
+  const kind = detectKind(originalName, file.mimetype);
   if (!kind) {
     throw Object.assign(
       new Error('仅支持 HTML、Markdown（.md）或 ZIP 文件'),
@@ -58,14 +61,17 @@ function publish({ username, file }) {
   const dir = siteDir(user, id);
   fs.mkdirSync(dir, { recursive: true });
 
-  let title = file.originalname || 'untitled';
+  let title = originalName || 'untitled';
   let entryFile = 'index.html';
   let fileCount = 1;
 
   try {
     if (kind === 'html') {
       const html = file.buffer.toString('utf8');
-      title = guessTitleFromHtml(html) || path.basename(file.originalname, path.extname(file.originalname)) || 'HTML Page';
+      title =
+        guessTitleFromHtml(html) ||
+        path.basename(originalName, path.extname(originalName)) ||
+        'HTML Page';
       fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
     } else if (kind === 'md') {
       const md = file.buffer.toString('utf8');
@@ -81,10 +87,10 @@ function publish({ username, file }) {
       if (fs.existsSync(htmlPath)) {
         title =
           guessTitleFromHtml(fs.readFileSync(htmlPath, 'utf8')) ||
-          path.basename(file.originalname, '.zip') ||
+          path.basename(originalName, '.zip') ||
           'Static Site';
       } else {
-        title = path.basename(file.originalname, '.zip') || 'Static Site';
+        title = path.basename(originalName, '.zip') || 'Static Site';
       }
     }
 
@@ -95,7 +101,7 @@ function publish({ username, file }) {
       kind,
       entryFile,
       fileCount,
-      originalName: file.originalname,
+      originalName,
       size: file.size || file.buffer.length,
       createdAt: new Date().toISOString(),
     };

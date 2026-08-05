@@ -3,12 +3,41 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
+const { decodeUploadFilename } = require('./filename');
+
+let migrated = false;
 
 function ensureDirs() {
   fs.mkdirSync(config.dataDir, { recursive: true });
   fs.mkdirSync(config.sitesDir, { recursive: true });
   if (!fs.existsSync(config.pagesDbPath)) {
     fs.writeFileSync(config.pagesDbPath, '[]', 'utf8');
+  }
+  migrateFilenamesOnce();
+}
+
+function migrateFilenamesOnce() {
+  if (migrated) return;
+  migrated = true;
+  try {
+    if (!fs.existsSync(config.pagesDbPath)) return;
+    const raw = fs.readFileSync(config.pagesDbPath, 'utf8');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return;
+    let changed = false;
+    for (const page of data) {
+      if (!page.originalName) continue;
+      const fixed = decodeUploadFilename(page.originalName);
+      if (fixed !== page.originalName) {
+        page.originalName = fixed;
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeAll(data);
+    }
+  } catch {
+    /* ignore migration errors */
   }
 }
 

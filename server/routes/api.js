@@ -6,6 +6,7 @@ const config = require('../config');
 const db = require('../lib/db');
 const { publish, publicPath } = require('../lib/publish');
 const { absoluteShareUrl, shareBaseUrl, detectLanIPv4 } = require('../lib/shareUrl');
+const { decodeUploadFilename } = require('../lib/filename');
 
 const router = express.Router();
 
@@ -56,20 +57,21 @@ router.get('/pages', (req, res) => {
     if (!db.isValidUsername(username)) {
       return res.status(400).json({ ok: false, error: '用户名无效' });
     }
-    const pages = db.listByUsername(username).map((p) => ({
-      ...p,
-      path: publicPath(p),
-      url: absoluteShareUrl(req, publicPath(p)),
-    }));
+    const pages = db.listByUsername(username).map(decoratePage(req));
     return res.json({ ok: true, pages, shareBase: shareBaseUrl(req) });
   }
-  const pages = db.listRecent(30).map((p) => ({
-    ...p,
-    path: publicPath(p),
-    url: absoluteShareUrl(req, publicPath(p)),
-  }));
+  const pages = db.listRecent(30).map(decoratePage(req));
   return res.json({ ok: true, pages, shareBase: shareBaseUrl(req) });
 });
+
+function decoratePage(req) {
+  return (p) => ({
+    ...p,
+    originalName: decodeUploadFilename(p.originalName || ''),
+    path: publicPath(p),
+    url: absoluteShareUrl(req, publicPath(p)),
+  });
+}
 
 router.get('/health', (_req, res) => {
   res.json({
