@@ -7,6 +7,8 @@ const ROOT = path.join(__dirname, '..');
 module.exports = {
   port: Number(process.env.PORT) || 3780,
   host: process.env.HOST || '0.0.0.0',
+  // Prefer for share links, e.g. http://192.168.1.10:3780 or https://pagedrop.company.local
+  publicUrl: (process.env.PUBLIC_URL || process.env.BASE_URL || '').replace(/\/$/, ''),
   rootDir: ROOT,
   sitesDir: path.join(ROOT, 'storage', 'sites'),
   dataDir: path.join(ROOT, 'data'),

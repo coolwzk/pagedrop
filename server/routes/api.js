@@ -5,6 +5,7 @@ const multer = require('multer');
 const config = require('../config');
 const db = require('../lib/db');
 const { publish, publicPath } = require('../lib/publish');
+const { absoluteShareUrl, shareBaseUrl, detectLanIPv4 } = require('../lib/shareUrl');
 
 const router = express.Router();
 
@@ -12,12 +13,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: config.maxFileBytes, files: 1 },
 });
-
-function baseUrl(req) {
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.get('host');
-  return `${proto}://${host}`;
-}
 
 router.post('/publish', (req, res) => {
   upload.single('file')(req, res, (err) => {
@@ -42,7 +37,8 @@ router.post('/publish', (req, res) => {
         ok: true,
         page: record,
         path,
-        url: `${baseUrl(req)}${path}`,
+        url: absoluteShareUrl(req, path),
+        shareBase: shareBaseUrl(req),
       });
     } catch (e) {
       const status = e.status || 500;
@@ -63,20 +59,26 @@ router.get('/pages', (req, res) => {
     const pages = db.listByUsername(username).map((p) => ({
       ...p,
       path: publicPath(p),
-      url: `${baseUrl(req)}${publicPath(p)}`,
+      url: absoluteShareUrl(req, publicPath(p)),
     }));
-    return res.json({ ok: true, pages });
+    return res.json({ ok: true, pages, shareBase: shareBaseUrl(req) });
   }
   const pages = db.listRecent(30).map((p) => ({
     ...p,
     path: publicPath(p),
-    url: `${baseUrl(req)}${publicPath(p)}`,
+    url: absoluteShareUrl(req, publicPath(p)),
   }));
-  return res.json({ ok: true, pages });
+  return res.json({ ok: true, pages, shareBase: shareBaseUrl(req) });
 });
 
 router.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'pagedrop' });
+  res.json({
+    ok: true,
+    service: 'pagedrop',
+    shareBase: config.publicUrl || null,
+    lanIp: detectLanIPv4(),
+    port: config.port,
+  });
 });
 
 module.exports = router;

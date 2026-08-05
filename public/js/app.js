@@ -117,14 +117,36 @@
       resultUrl.value = data.url;
       openBtn.href = data.url;
       result.classList.remove('hidden');
+      setShareHint(data.url);
       localStorage.setItem(USER_KEY, username);
       toast('发布成功');
-      window.open(data.url, '_blank', 'noopener');
+      // 本机预览优先用当前站点 origin，避免局域网 IP 在部分环境打不开
+      const localPreview = `${window.location.origin}${data.path || new URL(data.url).pathname}`;
+      window.open(localPreview, '_blank', 'noopener');
       loadPages();
     } catch (err) {
       toast(err.message || '发布失败', true);
     } finally {
       setBusy(false);
+    }
+  }
+
+  function setShareHint(url) {
+    const hint = $('result-hint');
+    if (!hint) return;
+    try {
+      const u = new URL(url);
+      const host = u.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') {
+        hint.className = 'result-hint warn';
+        hint.textContent =
+          '当前仍是本机地址，同事无法打开。请用局域网 IP 访问本站后再发布，或启动时设置 PUBLIC_URL=http://你的IP:3780';
+      } else {
+        hint.className = 'result-hint';
+        hint.textContent = `分享此链接给同一网络的同事即可访问（请保持 PageDrop 服务运行）。`;
+      }
+    } catch {
+      hint.textContent = '';
     }
   }
 
