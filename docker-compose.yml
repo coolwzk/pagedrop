@@ -1,0 +1,40 @@
+services:
+  pagedrop:
+    build: .
+    image: pagedrop:latest
+    container_name: pagedrop
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3780}:3780"
+    environment:
+      PORT: "3780"
+      HOST: "0.0.0.0"
+      AUTH_ENABLED: "${AUTH_ENABLED:-true}"
+      AUTH_ALLOW_REGISTER: "${AUTH_ALLOW_REGISTER:-false}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}"
+      SESSION_SECRET: "${SESSION_SECRET:?Set SESSION_SECRET in .env}"
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+      DEFAULT_TTL_DAYS: "${DEFAULT_TTL_DAYS:-30}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      MAX_FILE_BYTES: "${MAX_FILE_BYTES:-20971520}"
+      CLEANUP_INTERVAL_MS: "${CLEANUP_INTERVAL_MS:-900000}"
+    volumes:
+      - pagedrop-data:/app/data
+      - pagedrop-storage:/app/storage
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3780/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pagedrop-data:
+  pagedrop-storage:

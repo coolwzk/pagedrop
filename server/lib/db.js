@@ -26,10 +26,19 @@ function migrateFilenamesOnce() {
     if (!Array.isArray(data)) return;
     let changed = false;
     for (const page of data) {
-      if (!page.originalName) continue;
-      const fixed = decodeUploadFilename(page.originalName);
-      if (fixed !== page.originalName) {
-        page.originalName = fixed;
+      if (page.originalName) {
+        const fixed = decodeUploadFilename(page.originalName);
+        if (fixed !== page.originalName) {
+          page.originalName = fixed;
+          changed = true;
+        }
+      }
+      if (!page.owner && page.username) {
+        page.owner = page.username;
+        changed = true;
+      }
+      if (page.expiresAt === undefined) {
+        page.expiresAt = null;
         changed = true;
       }
     }
@@ -59,15 +68,29 @@ function writeAll(pages) {
   fs.renameSync(tmp, config.pagesDbPath);
 }
 
-function listByUsername(username) {
+function isExpired(page, now = Date.now()) {
+  if (!page || page.expiresAt == null || page.expiresAt === '') return false;
+  const t = Date.parse(page.expiresAt);
+  // Corrupt expiresAt → treat as expired so cleanup can reclaim
+  if (!Number.isFinite(t)) return true;
+  return t <= now;
+}
+
+function isActive(page, now = Date.now()) {
+  return !isExpired(page, now);
+}
+
+function listByUsername(username, { includeExpired = false } = {}) {
   const key = normalizeUsername(username);
   return readAll()
     .filter((p) => p.username === key)
+    .filter((p) => includeExpired || isActive(p))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
-function listRecent(limit = 50) {
+function listRecent(limit = 50, { includeExpired = false } = {}) {
   return readAll()
+    .filter((p) => includeExpired || isActive(p))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, limit);
 }
@@ -79,9 +102,26 @@ function addPage(record) {
   return record;
 }
 
-function getPage(username, id) {
+function getPage(username, id, { includeExpired = true } = {}) {
   const key = normalizeUsername(username);
-  return readAll().find((p) => p.username === key && p.id === id) || null;
+  const page = readAll().find((p) => p.username === key && p.id === id) || null;
+  if (!page) return null;
+  if (!includeExpired && isExpired(page)) return null;
+  return page;
+}
+
+function removePage(username, id) {
+  const key = normalizeUsername(username);
+  const pages = readAll();
+  const idx = pages.findIndex((p) => p.username === key && p.id === id);
+  if (idx === -1) return null;
+  const [removed] = pages.splice(idx, 1);
+  writeAll(pages);
+  return removed;
+}
+
+function listExpired(now = Date.now()) {
+  return readAll().filter((p) => isExpired(p, now));
 }
 
 function normalizeUsername(username) {
@@ -103,6 +143,10 @@ module.exports = {
   listRecent,
   addPage,
   getPage,
+  removePage,
+  listExpired,
+  isExpired,
+  isActive,
   normalizeUsername,
   isValidUsername,
   pagesPath: () => path.resolve(config.pagesDbPath),

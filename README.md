@@ -6,125 +6,153 @@
 
 ![PageDrop](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![license](https://img.shields.io/badge/license-MIT-blue)
 
+设计说明见 [docs/DESIGN-auth-ttl-docker.md](./docs/DESIGN-auth-ttl-docker.md)。
+
 ## 功能
 
 | 能力 | 说明 |
 |------|------|
 | 拖拽上传 | HTML / Markdown / ZIP |
-| 用户名归类 | 仅用于命名空间与查找，不是登录账号 |
-| 自动检查 | ZIP 安全解压（Zip Slip 防护）、入口 `index.html`、扩展名白名单 |
-| Markdown | 自动渲染为带样式的 HTML 页面 |
-| 即时链接 | `/p/{username}/{id}/` 静态访问 |
-| 最近发布 | 按用户名查看已发布页面 |
+| 登录鉴权 | 默认开启；发布/管理需登录，`/p/*` 分享链接仍可匿名打开 |
+| 有效期 | 永久 / 1 / 7 / 30 / 90 / 365 天，到期自动清理 |
+| 删除 | 所有者或管理员删除页面与磁盘文件 |
+| 自动检查 | ZIP Slip 防护、入口 `index.html`、扩展名白名单 |
+| Markdown | 自动渲染为带样式的 HTML |
+| 即时链接 | `/p/{username}/{id}/` |
+| Docker | `docker compose up` 一键部署 |
 
-## 快速开始
+## 快速开始（本地）
 
 ```bash
-# 需要 Node.js >= 18
 cd pagedrop
 npm install
+
+# 可选：自定义管理员密码
+# Windows PowerShell:
+#   $env:ADMIN_PASSWORD="your-strong-password"
+#   $env:SESSION_SECRET="long-random-secret"
+#   $env:AUTH_ENABLED="true"
+
 npm start
 ```
 
 浏览器打开：http://localhost:3780
 
+- 首次启动若无用户，会创建管理员（`ADMIN_USERNAME`，默认 `admin`）。
+- 未设置 `ADMIN_PASSWORD` 时会**生成随机密码并打印到控制台**，请保存。
+
 ```bash
-npm test    # 运行测试
-npm run dev # 开发模式（文件变更自动重启）
+npm test    # 测试
+npm run dev # 开发热重载
+```
+
+关闭鉴权（纯内网信任模式，兼容旧用法）：
+
+```powershell
+$env:AUTH_ENABLED="false"
+npm start
+```
+
+## Docker 一键部署
+
+```bash
+cp .env.example .env
+# 编辑 .env：设置 ADMIN_PASSWORD、SESSION_SECRET、PUBLIC_URL
+
+docker compose up -d --build
+# 或: npm run docker:up
+```
+
+访问 `http://服务器IP:3780`，使用 `.env` 中的管理员账号登录。
+
+数据持久化卷：
+
+- `pagedrop-data` → `/app/data`（用户与页面元数据）
+- `pagedrop-storage` → `/app/storage`（静态文件）
+
+```bash
+docker compose logs -f
+docker compose down
 ```
 
 ## 使用方式
 
-1. 填写**用户名**（例如 `zhangsan`）
-2. 拖入 `.html` / `.md` / `.zip` 文件
-3. 系统校验后生成链接，并自动在新窗口打开
+1. **登录**（鉴权开启时）
+2. 选择**有效期**，拖入 `.html` / `.md` / `.zip`
+3. 复制分享链接发给同事（无需登录即可打开）
+4. 在「最近发布」中可**删除**自己的页面
 
 ### ZIP 要求
 
-- 根目录包含 `index.html`，或 ZIP 内仅有一层子目录且其中包含 `index.html`（会自动提升）
-- 仅允许静态资源扩展名：html/css/js/图片/字体等
-- 默认体积上限 20MB（可用环境变量调整）
+- 根目录（或单层子目录）包含 `index.html`
+- 仅允许静态资源扩展名
+- 默认体积上限 20MB
 
-## 分享链接说明
+## 分享链接
 
-复制出的链接默认会尽量使用**局域网 IP**（而不是 `localhost`），方便同事访问：
+优先使用局域网 IP（或 `PUBLIC_URL`），例如：
 
 ```text
 http://192.168.x.x:3780/p/zekai/xxxxx/
-```
-
-- 同事需与你在同一局域网（或 VPN）
-- 本机防火墙需放行 `3780` 端口
-- PageDrop 服务需保持运行
-
-也可固定对外地址：
-
-```powershell
-# PowerShell
-$env:PUBLIC_URL="http://192.168.1.23:3780"
-npm start
 ```
 
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `PORT` | `3780` | 监听端口 |
+| `PORT` | `3780` | 端口 |
 | `HOST` | `0.0.0.0` | 监听地址 |
-| `PUBLIC_URL` / `BASE_URL` | （自动检测局域网 IP） | 分享链接的根地址，如 `http://192.168.1.23:3780` |
-| `MAX_FILE_BYTES` | `20971520` | 上传体积上限（字节） |
+| `PUBLIC_URL` | 自动检测局域网 IP | 分享链接根地址 |
+| `AUTH_ENABLED` | `true` | 是否开启登录 |
+| `AUTH_ALLOW_REGISTER` | `false` | 是否开放自助注册 |
+| `ADMIN_USERNAME` | `admin` | 引导管理员用户名 |
+| `ADMIN_PASSWORD` | （随机生成） | 引导管理员密码 |
+| `SESSION_SECRET` | （进程内随机） | Cookie 签名密钥，生产必设 |
+| `SESSION_TTL_SECONDS` | `604800` | 会话有效期（默认 7 天） |
+| `COOKIE_SECURE` | `false` | HTTPS 时设 `true` |
+| `DEFAULT_TTL_DAYS` | `30` | 默认页面有效期（0=永久） |
+| `CLEANUP_INTERVAL_MS` | `900000` | 过期扫描间隔（默认 15 分钟） |
+| `MAX_FILE_BYTES` | `20971520` | 上传体积上限 |
+
+## API 摘要
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/auth/config` | 鉴权/TTL 配置 |
+| POST | `/api/auth/login` | 登录 |
+| POST | `/api/auth/logout` | 退出 |
+| GET | `/api/auth/me` | 当前用户 |
+| POST | `/api/publish` | 发布（需登录） |
+| GET | `/api/pages` | 列表（需登录） |
+| DELETE | `/api/pages/:user/:id` | 删除（owner/admin） |
+| GET | `/p/:user/:id/` | 静态访问（公开，过期 410） |
 
 ## 项目结构
 
 ```text
 pagedrop/
-├── public/           # 前端（上传页 UI）
+├── public/              # 前端
 ├── server/
-│   ├── index.js      # Express 入口
+│   ├── index.js
 │   ├── config.js
-│   ├── routes/api.js
-│   └── lib/          # 发布、ZIP、Markdown、元数据
-├── storage/sites/    # 已发布站点文件（运行时生成）
-├── data/pages.json   # 页面元数据（运行时生成）
+│   ├── middleware/auth.js
+│   ├── routes/{api,auth}.js
+│   └── lib/             # auth、session、publish、cleanup…
+├── docs/                # 设计文档
+├── Dockerfile
+├── docker-compose.yml
+├── storage/sites/
+├── data/
 └── tests/
-```
-
-## API
-
-### `POST /api/publish`
-
-`multipart/form-data`：
-
-- `username` — 用户名
-- `file` — HTML / MD / ZIP 文件
-
-成功响应：
-
-```json
-{
-  "ok": true,
-  "page": { "id": "...", "username": "zhangsan", "title": "...", "kind": "html" },
-  "path": "/p/zhangsan/xxxx/",
-  "url": "http://localhost:3780/p/zhangsan/xxxx/"
-}
-```
-
-### `GET /api/pages?username=zhangsan`
-
-列出该用户（或全体最近）已发布页面。
-
-### 静态访问
-
-```text
-GET /p/:username/:id/
 ```
 
 ## 安全说明
 
-- **Zip Slip**：解压路径强制限制在站点目录内
-- **扩展名白名单**：拒绝 `.exe` 等可执行类型
-- **体积与条目数限制**：防止 zip bomb
-- 本工具面向**内网信任环境**；任意 HTML/JS 会按用户上传内容执行，请勿对公网匿名开放而不加鉴权与审计
+- 发布与管理受登录保护；分享链接默认公开可读
+- 密码 bcrypt 哈希；会话 HMAC 签名 Cookie
+- 登录接口进程内限速
+- ZIP Slip / 扩展名 / 体积限制
+- 上传的 HTML/JS 会在浏览器执行——面向内网；公网请配合网关鉴权与审计
 
 ## License
 

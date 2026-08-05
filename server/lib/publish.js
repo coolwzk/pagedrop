@@ -11,8 +11,15 @@ const { decodeUploadFilename } = require('./filename');
 
 const nanoid = customAlphabet('23456789abcdefghijkmnpqrstuvwxyz', 10);
 
+const { resolveSiteDir } = require('./safePath');
+
 function siteDir(username, id) {
-  return path.join(config.sitesDir, username, id);
+  const dir = resolveSiteDir(username, id);
+  if (!dir) {
+    // fallback only for newly generated safe ids during publish
+    return path.join(config.sitesDir, db.normalizeUsername(username), id);
+  }
+  return dir;
 }
 
 function detectKind(originalname, mimetype) {
@@ -34,7 +41,38 @@ function guessTitleFromHtml(html) {
   return m ? m[1].trim() : null;
 }
 
-function publish({ username, file }) {
+/**
+ * Resolve TTL days from client input + server default.
+ * 0 => never expire
+ */
+function resolveTtlDays(raw) {
+  let days;
+  if (raw === undefined || raw === null || raw === '') {
+    days = config.defaultTtlDays;
+  } else {
+    days = Number(raw);
+  }
+  if (!Number.isFinite(days) || days < 0) {
+    throw Object.assign(new Error('有效期无效'), { status: 400 });
+  }
+  days = Math.floor(days);
+  if (!config.allowedTtlDays.includes(days)) {
+    throw Object.assign(
+      new Error(`有效期仅支持：${config.allowedTtlDays.join(', ')} 天（0=永久）`),
+      { status: 400 }
+    );
+  }
+  return days;
+}
+
+function computeExpiresAt(ttlDays, from = new Date()) {
+  if (!ttlDays || ttlDays <= 0) return null;
+  const d = new Date(from.getTime());
+  d.setUTCDate(d.getUTCDate() + ttlDays);
+  return d.toISOString();
+}
+
+function publish({ username, file, owner, ttlDays }) {
   if (!db.isValidUsername(username)) {
     throw Object.assign(
       new Error('用户名无效：1–32 位字母、数字、下划线或连字符'),
@@ -43,11 +81,13 @@ function publish({ username, file }) {
   }
 
   const user = db.normalizeUsername(username);
+  const pageOwner = db.normalizeUsername(owner || user);
   if (!file || !file.buffer) {
     throw Object.assign(new Error('请上传文件'), { status: 400 });
   }
 
   const originalName = decodeUploadFilename(file.originalname);
+  const resolvedTtl = resolveTtlDays(ttlDays);
 
   const kind = detectKind(originalName, file.mimetype);
   if (!kind) {
@@ -64,6 +104,7 @@ function publish({ username, file }) {
   let title = originalName || 'untitled';
   let entryFile = 'index.html';
   let fileCount = 1;
+  const createdAt = new Date();
 
   try {
     if (kind === 'html') {
@@ -97,19 +138,21 @@ function publish({ username, file }) {
     const record = {
       id,
       username: user,
+      owner: pageOwner,
       title: String(title).slice(0, 200),
       kind,
       entryFile,
       fileCount,
       originalName,
       size: file.size || file.buffer.length,
-      createdAt: new Date().toISOString(),
+      ttlDays: resolvedTtl,
+      expiresAt: computeExpiresAt(resolvedTtl, createdAt),
+      createdAt: createdAt.toISOString(),
     };
 
     db.addPage(record);
     return record;
   } catch (err) {
-    // cleanup partial site
     try {
       fs.rmSync(dir, { recursive: true, force: true });
     } catch {
@@ -128,4 +171,6 @@ module.exports = {
   publicPath,
   siteDir,
   detectKind,
+  resolveTtlDays,
+  computeExpiresAt,
 };

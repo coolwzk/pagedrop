@@ -2,6 +2,7 @@
   const $ = (id) => document.getElementById(id);
 
   const usernameInput = $('username');
+  const ttlSelect = $('ttl-days');
   const dropzone = $('dropzone');
   const fileInput = $('file-input');
   const browseBtn = $('browse-btn');
@@ -16,23 +17,20 @@
   const refreshBtn = $('refresh-btn');
   const publishedCount = $('published-count');
   const toastEl = $('toast');
+  const loginPanel = $('login-panel');
+  const appMain = $('app-main');
+  const authSlot = $('auth-slot');
+  const usernameHint = $('username-hint');
 
   const USER_KEY = 'pagedrop_username';
 
-  // restore username
+  let authEnabled = true;
+  let allowRegister = false;
+  let currentUser = null;
+  let defaultTtlDays = 30;
+
   const saved = localStorage.getItem(USER_KEY);
   if (saved) usernameInput.value = saved;
-
-  usernameInput.addEventListener('change', () => {
-    localStorage.setItem(USER_KEY, usernameInput.value.trim());
-    loadPages();
-  });
-  usernameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      localStorage.setItem(USER_KEY, usernameInput.value.trim());
-      loadPages();
-    }
-  });
 
   function toast(msg, isError = false) {
     toastEl.textContent = msg;
@@ -47,6 +45,177 @@
     uploadState.classList.toggle('hidden', !busy);
     uploadMsg.textContent = msg;
   }
+
+  async function api(url, options = {}) {
+    const res = await fetch(url, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        ...(options.body && !(options.body instanceof FormData)
+          ? { 'Content-Type': 'application/json' }
+          : {}),
+        ...options.headers,
+      },
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = { ok: false, error: '无效响应' };
+    }
+    return { res, data };
+  }
+
+  function applyTtlOptions(allowed, selected) {
+    if (!ttlSelect || !Array.isArray(allowed)) return;
+    const labels = {
+      0: '永久',
+      1: '1 天',
+      7: '7 天',
+      30: '30 天',
+      90: '90 天',
+      365: '365 天',
+    };
+    ttlSelect.innerHTML = allowed
+      .map((d) => `<option value="${d}">${labels[d] ?? `${d} 天`}</option>`)
+      .join('');
+    const pick = allowed.includes(selected) ? selected : allowed[0];
+    ttlSelect.value = String(pick);
+  }
+
+  function renderAuthSlot() {
+    if (!authEnabled) {
+      authSlot.innerHTML = '<span class="auth-muted">开放模式</span>';
+      return;
+    }
+    if (currentUser) {
+      authSlot.innerHTML = `
+        <span class="auth-user">@${escapeHtml(currentUser.username)}${
+          currentUser.role === 'admin' ? ' · 管理员' : ''
+        }</span>
+        <button type="button" id="logout-btn" class="btn btn-small">退出</button>`;
+      $('logout-btn')?.addEventListener('click', logout);
+    } else {
+      authSlot.innerHTML = '<span class="auth-muted">未登录</span>';
+    }
+  }
+
+  function updateAuthUi() {
+    renderAuthSlot();
+    const needLogin = authEnabled && !currentUser;
+    loginPanel.classList.toggle('hidden', !needLogin);
+    appMain.classList.toggle('hidden', needLogin);
+
+    const adminWrap = $('admin-all-wrap');
+    if (adminWrap) {
+      adminWrap.classList.toggle('hidden', !(authEnabled && currentUser?.role === 'admin'));
+    }
+
+    if (authEnabled && currentUser) {
+      usernameInput.value = currentUser.username;
+      usernameInput.readOnly = true;
+      usernameHint.textContent = '登录后发布到你的命名空间（不可冒用他人）';
+    } else {
+      usernameInput.readOnly = false;
+      usernameHint.textContent = authEnabled
+        ? '用于归类和查找页面'
+        : '用于归类和查找页面，不是登录账号';
+    }
+  }
+
+  async function loadSession() {
+    const { data: cfg } = await api('/api/auth/config');
+    if (cfg?.ok) {
+      authEnabled = !!cfg.authEnabled;
+      allowRegister = !!cfg.allowRegister;
+      defaultTtlDays = cfg.defaultTtlDays ?? 30;
+      applyTtlOptions(cfg.allowedTtlDays || [0, 1, 7, 30, 90, 365], defaultTtlDays);
+    }
+
+    const { data: me } = await api('/api/auth/me');
+    currentUser = me?.user || null;
+
+    const toggleReg = $('toggle-register');
+    const regForm = $('register-form');
+    if (allowRegister && toggleReg) {
+      toggleReg.classList.remove('hidden');
+      toggleReg.onclick = () => {
+        regForm.classList.toggle('hidden');
+        $('login-form').classList.toggle('hidden');
+        toggleReg.textContent = regForm.classList.contains('hidden')
+          ? '没有账号？注册'
+          : '已有账号？登录';
+      };
+    }
+
+    updateAuthUi();
+    if (!authEnabled || currentUser) {
+      loadPages();
+    }
+  }
+
+  async function logout() {
+    await api('/api/auth/logout', { method: 'POST', body: '{}' });
+    currentUser = null;
+    updateAuthUi();
+    toast('已退出');
+  }
+
+  $('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('login-error');
+    errEl.classList.add('hidden');
+    const username = $('login-username').value.trim();
+    const password = $('login-password').value;
+    const { res, data } = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok || !data.ok) {
+      errEl.textContent = data.error || '登录失败';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    currentUser = data.user;
+    updateAuthUi();
+    toast('登录成功');
+    loadPages();
+  });
+
+  $('register-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('reg-error');
+    errEl.classList.add('hidden');
+    const { res, data } = await api('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: $('reg-username').value.trim(),
+        password: $('reg-password').value,
+      }),
+    });
+    if (!res.ok || !data.ok) {
+      errEl.textContent = data.error || '注册失败';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    currentUser = data.user;
+    updateAuthUi();
+    toast('注册成功');
+    loadPages();
+  });
+
+  usernameInput.addEventListener('change', () => {
+    if (!usernameInput.readOnly) {
+      localStorage.setItem(USER_KEY, usernameInput.value.trim());
+      loadPages();
+    }
+  });
+  usernameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !usernameInput.readOnly) {
+      localStorage.setItem(USER_KEY, usernameInput.value.trim());
+      loadPages();
+    }
+  });
 
   function openPicker(e) {
     e?.stopPropagation();
@@ -92,6 +261,10 @@
   });
 
   async function publishFile(file) {
+    if (authEnabled && !currentUser) {
+      toast('请先登录', true);
+      return;
+    }
     const username = usernameInput.value.trim();
     if (!username) {
       toast('请先填写用户名', true);
@@ -101,26 +274,32 @@
 
     const form = new FormData();
     form.append('username', username);
+    form.append('ttlDays', ttlSelect?.value ?? String(defaultTtlDays));
     form.append('file', file);
 
     setBusy(true, `正在发布 ${file.name}…`);
     result.classList.add('hidden');
 
     try {
-      const res = await fetch('/api/publish', { method: 'POST', body: form });
-      const data = await res.json();
+      const { res, data } = await api('/api/publish', { method: 'POST', body: form });
       if (!res.ok || !data.ok) {
+        if (res.status === 401) {
+          currentUser = null;
+          updateAuthUi();
+        }
         throw new Error(data.error || '发布失败');
       }
 
-      resultTitle.textContent = `${data.page.title} · ${data.page.kind.toUpperCase()}`;
+      const exp = data.page.expiresAt
+        ? ` · 有效期至 ${formatTime(data.page.expiresAt)}`
+        : ' · 永久';
+      resultTitle.textContent = `${data.page.title} · ${data.page.kind.toUpperCase()}${exp}`;
       resultUrl.value = data.url;
       openBtn.href = data.url;
       result.classList.remove('hidden');
       setShareHint(data.url);
       localStorage.setItem(USER_KEY, username);
       toast('发布成功');
-      // 本机预览优先用当前站点 origin，避免局域网 IP 在部分环境打不开
       const localPreview = `${window.location.origin}${data.path || new URL(data.url).pathname}`;
       window.open(localPreview, '_blank', 'noopener');
       loadPages();
@@ -140,10 +319,10 @@
       if (host === 'localhost' || host === '127.0.0.1') {
         hint.className = 'result-hint warn';
         hint.textContent =
-          '当前仍是本机地址，同事无法打开。请用局域网 IP 访问本站后再发布，或启动时设置 PUBLIC_URL=http://你的IP:3780';
+          '当前仍是本机地址，同事无法打开。请用局域网 IP 访问本站后再发布，或设置 PUBLIC_URL。';
       } else {
         hint.className = 'result-hint';
-        hint.textContent = `分享此链接给同一网络的同事即可访问（请保持 PageDrop 服务运行）。`;
+        hint.textContent = '分享此链接给同一网络的同事即可访问（请保持 PageDrop 服务运行）。';
       }
     } catch {
       hint.textContent = '';
@@ -163,24 +342,32 @@
 
   function formatTime(iso) {
     try {
-      const d = new Date(iso);
-      return d.toLocaleString('zh-CN', { hour12: false });
+      return new Date(iso).toLocaleString('zh-CN', { hour12: false });
     } catch {
       return iso;
     }
   }
 
+  $('admin-all')?.addEventListener('change', loadPages);
+
   async function loadPages() {
-    const username = usernameInput.value.trim();
-    const qs = username ? `?username=${encodeURIComponent(username)}` : '';
+    if (authEnabled && !currentUser) return;
     try {
-      const res = await fetch(`/api/pages${qs}`);
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '加载失败');
+      const all = $('admin-all')?.checked && currentUser?.role === 'admin';
+      const { res, data } = await api(all ? '/api/pages?all=1' : '/api/pages');
+      if (!res.ok || !data.ok) {
+        if (res.status === 401) {
+          currentUser = null;
+          updateAuthUi();
+          return;
+        }
+        throw new Error(data.error || '加载失败');
+      }
 
       const pages = data.pages || [];
-      publishedCount.textContent = username
-        ? `${username} · ${pages.length} 个页面`
+      const labelUser = currentUser?.username || usernameInput.value.trim();
+      publishedCount.textContent = labelUser
+        ? `${labelUser} · ${pages.length} 个页面`
         : `已发布页面 · ${pages.length}`;
 
       if (pages.length === 0) {
@@ -189,20 +376,52 @@
       }
 
       pageList.innerHTML = pages
-        .map(
-          (p) => `
+        .map((p) => {
+          const exp = p.expiresAt
+            ? ` · 至 ${formatTime(p.expiresAt)}`
+            : ' · 永久';
+          const del = p.canDelete
+            ? `<button type="button" class="btn btn-danger btn-small" data-del-user="${escapeAttr(
+                p.username
+              )}" data-del-id="${escapeAttr(p.id)}">删除</button>`
+            : '';
+          return `
         <li>
           <div class="page-meta">
             <strong><span class="kind-pill">${escapeHtml(p.kind)}</span>${escapeHtml(p.title)}</strong>
-            <span>@${escapeHtml(p.username)} · ${formatTime(p.createdAt)} · ${escapeHtml(p.originalName || '')}</span>
+            <span>@${escapeHtml(p.username)} · ${formatTime(p.createdAt)}${exp} · ${escapeHtml(
+              p.originalName || ''
+            )}</span>
           </div>
-          <a class="btn" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">打开</a>
-        </li>`
-        )
+          <div class="page-actions">
+            <a class="btn btn-small" href="${escapeAttr(p.path)}" target="_blank" rel="noopener">打开</a>
+            ${del}
+          </div>
+        </li>`;
+        })
         .join('');
+
+      pageList.querySelectorAll('[data-del-id]').forEach((btn) => {
+        btn.addEventListener('click', () =>
+          deletePage(btn.getAttribute('data-del-user'), btn.getAttribute('data-del-id'))
+        );
+      });
     } catch (err) {
       pageList.innerHTML = `<li class="empty">${escapeHtml(err.message)}</li>`;
     }
+  }
+
+  async function deletePage(username, id) {
+    if (!confirm('确定删除该页面？此操作不可恢复。')) return;
+    const { res, data } = await api(`/api/pages/${encodeURIComponent(username)}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok || !data.ok) {
+      toast(data.error || '删除失败', true);
+      return;
+    }
+    toast('已删除');
+    loadPages();
   }
 
   function escapeHtml(s) {
@@ -218,5 +437,8 @@
   }
 
   refreshBtn.addEventListener('click', loadPages);
-  loadPages();
+  loadSession().catch((err) => {
+    console.error(err);
+    toast('初始化失败', true);
+  });
 })();

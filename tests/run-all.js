@@ -3,7 +3,14 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const tests = ['zip.test.js', 'publish.test.js', 'shareUrl.test.js', 'filename.test.js'];
+const tests = [
+  'zip.test.js',
+  'publish.test.js',
+  'shareUrl.test.js',
+  'filename.test.js',
+  'auth.test.js',
+  'http.test.js',
+];
 let failed = 0;
 
 console.log('\nPageDrop tests\n');

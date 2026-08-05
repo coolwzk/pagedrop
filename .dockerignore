@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+data/*
+!data/.gitkeep
+storage/sites/*
+!storage/sites/.gitkeep
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+tests
+*.md
+!docs/**
+.DS_Store
+Thumbs.db
