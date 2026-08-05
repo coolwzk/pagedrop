@@ -58,7 +58,10 @@ module.exports = {
   cookieName: 'pd_session',
   cookieSecure: envBool('COOKIE_SECURE', false),
   adminUsername: (process.env.ADMIN_USERNAME || 'admin').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'admin',
+  // Empty ADMIN_PASSWORD → use well-known local default (see defaultAdminPassword)
   adminPassword: process.env.ADMIN_PASSWORD || '',
+  /** Documented local default when ADMIN_PASSWORD is not set */
+  defaultAdminPassword: process.env.DEFAULT_ADMIN_PASSWORD || 'admin123',
 
   // TTL / cleanup
   // DEFAULT_TTL_DAYS: 0 = never expire by default; e.g. 30 = 30 days

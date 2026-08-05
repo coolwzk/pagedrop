@@ -93,11 +93,49 @@
         <span class="auth-user">@${escapeHtml(currentUser.username)}${
           currentUser.role === 'admin' ? ' · 管理员' : ''
         }</span>
+        <button type="button" id="change-pwd-btn" class="btn btn-small">改密码</button>
         <button type="button" id="logout-btn" class="btn btn-small">退出</button>`;
       $('logout-btn')?.addEventListener('click', logout);
+      $('change-pwd-btn')?.addEventListener('click', () => openPasswordModal(false));
     } else {
       authSlot.innerHTML = '<span class="auth-muted">未登录</span>';
     }
+  }
+
+  function applyLoginHints(hints) {
+    const box = $('login-credentials');
+    if (!box) return;
+    if (hints?.show && hints.username) {
+      box.classList.remove('hidden');
+      $('cred-user').textContent = hints.username;
+      $('cred-pass').textContent = hints.password || '——';
+      $('cred-note').textContent = hints.note || '';
+      $('login-username').placeholder = hints.username;
+    } else {
+      box.classList.add('hidden');
+    }
+  }
+
+  function openPasswordModal(forced) {
+    const modal = $('password-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    $('pwd-error')?.classList.add('hidden');
+    $('pwd-old').value = '';
+    $('pwd-new').value = '';
+    $('pwd-new2').value = '';
+    const cancel = $('pwd-cancel');
+    if (cancel) {
+      cancel.classList.toggle('hidden', !!forced);
+    }
+    $('pwd-modal-desc').textContent = forced
+      ? '当前使用的是默认密码，请先设置新密码后再继续使用（至少 6 位）。'
+      : '设置新密码（至少 6 位）。';
+    setTimeout(() => $('pwd-old')?.focus(), 50);
+  }
+
+  function closePasswordModal() {
+    $('password-modal')?.classList.add('hidden');
   }
 
   function updateAuthUi() {
@@ -141,6 +179,7 @@
       allowRegister = !!cfg.allowRegister;
       defaultTtlDays = cfg.defaultTtlDays ?? 30;
       applyTtlOptions(cfg.allowedTtlDays || [0, 1, 7, 30, 90, 365], defaultTtlDays);
+      applyLoginHints(cfg.loginHints);
     }
 
     const { data: me } = await api('/api/auth/me');
@@ -160,10 +199,64 @@
     }
 
     updateAuthUi();
+    if (currentUser?.mustChangePassword) {
+      openPasswordModal(true);
+    }
     if (!authEnabled || currentUser) {
       loadPages();
     }
   }
+
+  // credentials helpers on login card
+  document.querySelectorAll('.cred-copy').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-copy-target');
+      const text = $(id)?.textContent || '';
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('已复制');
+      } catch {
+        toast('复制失败', true);
+      }
+    });
+  });
+
+  $('fill-credentials')?.addEventListener('click', () => {
+    $('login-username').value = $('cred-user')?.textContent || 'admin';
+    $('login-password').value = $('cred-pass')?.textContent || '';
+    $('login-password')?.focus();
+  });
+
+  $('pwd-cancel')?.addEventListener('click', () => {
+    if (!currentUser?.mustChangePassword) closePasswordModal();
+  });
+
+  $('change-password-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = $('pwd-error');
+    errEl.classList.add('hidden');
+    const oldPassword = $('pwd-old').value;
+    const newPassword = $('pwd-new').value;
+    const new2 = $('pwd-new2').value;
+    if (newPassword !== new2) {
+      errEl.textContent = '两次输入的新密码不一致';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const { res, data } = await api('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+    if (!res.ok || !data.ok) {
+      errEl.textContent = data.error || '修改失败';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    currentUser = data.user;
+    closePasswordModal();
+    updateAuthUi();
+    toast('密码已更新');
+  });
 
   async function logout() {
     await api('/api/auth/logout', { method: 'POST', body: '{}' });
@@ -190,6 +283,9 @@
     currentUser = data.user;
     updateAuthUi();
     toast('登录成功');
+    if (data.user?.mustChangePassword || data.mustChangePassword) {
+      openPasswordModal(true);
+    }
     loadPages();
   });
 

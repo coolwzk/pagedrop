@@ -12,7 +12,8 @@ services:
       AUTH_ENABLED: "${AUTH_ENABLED:-true}"
       AUTH_ALLOW_REGISTER: "${AUTH_ALLOW_REGISTER:-false}"
       ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
-      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}"
+      # Optional: omit to use built-in admin/admin123 on first boot
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       SESSION_SECRET: "${SESSION_SECRET:?Set SESSION_SECRET in .env}"
       PUBLIC_URL: "${PUBLIC_URL:-}"
       DEFAULT_TTL_DAYS: "${DEFAULT_TTL_DAYS:-30}"

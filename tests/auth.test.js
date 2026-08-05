@@ -19,6 +19,7 @@ config.authEnabled = true;
 config.sessionSecret = process.env.SESSION_SECRET;
 config.adminPassword = 'adminpass';
 config.adminUsername = 'admin';
+config.defaultAdminPassword = 'admin123';
 config.dataDir = path.join(tmpRoot, 'data');
 config.sitesDir = path.join(tmpRoot, 'sites');
 config.pagesDbPath = path.join(tmpRoot, 'data', 'pages.json');
@@ -29,7 +30,16 @@ const {
   verifySessionToken,
   readSession,
 } = require('../server/lib/session');
-const { createUser, findUser, verifyPassword, bootstrapAdmin, publicUser } = require('../server/lib/users');
+const {
+  createUser,
+  findUser,
+  verifyPassword,
+  bootstrapAdmin,
+  publicUser,
+  changePassword,
+  getLoginHints,
+  resetAdminPassword,
+} = require('../server/lib/users');
 const { canManagePage } = require('../server/middleware/auth');
 const { computeExpiresAt, resolveTtlDays } = require('../server/lib/publish');
 const { deletePage, purgeExpired } = require('../server/lib/cleanup');
@@ -50,12 +60,18 @@ function test(name, fn) {
 
 console.log('auth + ttl + delete');
 
-test('bootstrap admin', () => {
+test('bootstrap admin from ADMIN_PASSWORD', () => {
   bootstrapAdmin();
   const admin = findUser('admin');
   assert.ok(admin);
   assert.strictEqual(admin.role, 'admin');
   assert.ok(verifyPassword(admin, 'adminpass'));
+  assert.strictEqual(admin.mustChangePassword, false);
+});
+
+test('login hints hide password after custom bootstrap', () => {
+  const hints = getLoginHints();
+  assert.strictEqual(hints.show, false);
 });
 
 test('session roundtrip', () => {
@@ -146,6 +162,26 @@ test('readSession from cookie header', () => {
   const req = { headers: { cookie: `pd_session=${encodeURIComponent(token)}` } };
   const session = readSession(req);
   assert.strictEqual(session.username, 'admin');
+});
+
+test('change password', () => {
+  changePassword('alice', 'secret1', 'secret2');
+  const u = findUser('alice');
+  assert.ok(verifyPassword(u, 'secret2'));
+  assert.ok(!verifyPassword(u, 'secret1'));
+});
+
+test('reset admin and show default hints', () => {
+  // wipe users and bootstrap with default password
+  fs.writeFileSync(config.usersDbPath, '[]', 'utf8');
+  config.adminPassword = '';
+  const result = resetAdminPassword(config.defaultAdminPassword);
+  assert.strictEqual(result.username, 'admin');
+  assert.strictEqual(result.password, 'admin123');
+  const hints = getLoginHints();
+  assert.strictEqual(hints.show, true);
+  assert.strictEqual(hints.password, 'admin123');
+  assert.ok(fs.existsSync(path.join(config.dataDir, 'INITIAL_CREDENTIALS.txt')));
 });
 
 // silence unused

@@ -38,8 +38,25 @@ npm start
 
 浏览器打开：http://localhost:3780
 
-- 首次启动若无用户，会创建管理员（`ADMIN_USERNAME`，默认 `admin`）。
-- 未设置 `ADMIN_PASSWORD` 时会**生成随机密码并打印到控制台**，请保存。
+### 默认账号（首次启动）
+
+| 项目 | 值 |
+|------|-----|
+| 用户名 | `admin` |
+| 密码 | `admin123` |
+
+- 未设置 `ADMIN_PASSWORD` 时，自动创建上述默认管理员。
+- 登录页会显示账号卡片，可「一键填入」；登录后会提示修改密码。
+- 控制台与 `data/INITIAL_CREDENTIALS.txt` 也会写入同一份信息。
+- 生产环境请设置 `ADMIN_PASSWORD` / `SESSION_SECRET`，不要沿用默认密码。
+
+忘记密码可重置：
+
+```bash
+npm run reset-admin
+# 或指定新密码
+npm run reset-admin -- YourNewPassword
+```
 
 ```bash
 npm test    # 测试

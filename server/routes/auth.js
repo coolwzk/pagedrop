@@ -2,7 +2,14 @@
 
 const express = require('express');
 const config = require('../config');
-const { findUser, createUser, verifyPassword, publicUser } = require('../lib/users');
+const {
+  findUser,
+  createUser,
+  verifyPassword,
+  publicUser,
+  changePassword,
+  getLoginHints,
+} = require('../lib/users');
 const {
   createSessionToken,
   setSessionCookie,
@@ -24,12 +31,14 @@ const registerLimiter = createRateLimiter({
 });
 
 router.get('/config', (_req, res) => {
+  const hints = getLoginHints();
   res.json({
     ok: true,
     authEnabled: config.authEnabled,
     allowRegister: config.authAllowRegister,
     defaultTtlDays: config.defaultTtlDays,
     allowedTtlDays: config.allowedTtlDays,
+    loginHints: hints,
   });
 });
 
@@ -65,12 +74,33 @@ router.post('/login', (req, res) => {
 
   const token = createSessionToken(user);
   setSessionCookie(res, token);
-  return res.json({ ok: true, user: publicUser(user) });
+  return res.json({
+    ok: true,
+    user: publicUser(user),
+    mustChangePassword: !!user.mustChangePassword,
+  });
 });
 
 router.post('/logout', (_req, res) => {
   clearSessionCookie(res);
   res.json({ ok: true });
+});
+
+router.post('/change-password', requireAuth, (req, res) => {
+  try {
+    const user = changePassword(
+      req.user.username,
+      req.body?.oldPassword,
+      req.body?.newPassword
+    );
+    // refresh session cookie
+    const full = findUser(user.username);
+    const token = createSessionToken(full);
+    setSessionCookie(res, token);
+    return res.json({ ok: true, user });
+  } catch (e) {
+    return res.status(e.status || 500).json({ ok: false, error: e.message || '修改失败' });
+  }
 });
 
 router.post('/register', (req, res) => {

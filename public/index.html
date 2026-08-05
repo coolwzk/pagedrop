@@ -17,6 +17,22 @@
       </div>
       <p class="login-tagline">内网静态托管 · 登录后发布</p>
 
+      <div id="login-credentials" class="login-credentials hidden">
+        <div class="cred-title">默认管理员账号</div>
+        <div class="cred-row">
+          <span>用户名</span>
+          <code id="cred-user">admin</code>
+          <button type="button" class="cred-copy" data-copy-target="cred-user" title="复制">复制</button>
+        </div>
+        <div class="cred-row">
+          <span>密码</span>
+          <code id="cred-pass">admin123</code>
+          <button type="button" class="cred-copy" data-copy-target="cred-pass" title="复制">复制</button>
+        </div>
+        <p id="cred-note" class="cred-note">首次启动自动创建，登录后请修改密码</p>
+        <button type="button" id="fill-credentials" class="link-btn">一键填入</button>
+      </div>
+
       <form id="login-form" class="login-form">
         <label class="field stacked">
           <span class="field-label">用户名</span>
@@ -195,6 +211,33 @@
     <footer class="footer">
       <span>PageDrop · 上传即发布</span>
     </footer>
+  </div>
+
+  <!-- 强制 / 主动修改密码 -->
+  <div id="password-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pwd-modal-title">
+    <div class="modal-card">
+      <h2 id="pwd-modal-title">修改密码</h2>
+      <p id="pwd-modal-desc" class="modal-desc">为保障安全，请设置新密码（至少 6 位）。</p>
+      <form id="change-password-form" class="login-form">
+        <label class="field stacked">
+          <span class="field-label">当前密码</span>
+          <input id="pwd-old" type="password" autocomplete="current-password" required />
+        </label>
+        <label class="field stacked">
+          <span class="field-label">新密码</span>
+          <input id="pwd-new" type="password" autocomplete="new-password" required minlength="6" />
+        </label>
+        <label class="field stacked">
+          <span class="field-label">确认新密码</span>
+          <input id="pwd-new2" type="password" autocomplete="new-password" required minlength="6" />
+        </label>
+        <p id="pwd-error" class="form-error hidden"></p>
+        <div class="modal-actions">
+          <button type="button" id="pwd-cancel" class="btn hidden">取消</button>
+          <button type="submit" class="btn btn-primary">保存新密码</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden" role="status"></div>
