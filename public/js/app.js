@@ -47,21 +47,42 @@
   }
 
   async function api(url, options = {}) {
-    const res = await fetch(url, {
-      credentials: 'same-origin',
-      ...options,
-      headers: {
-        ...(options.body && !(options.body instanceof FormData)
-          ? { 'Content-Type': 'application/json' }
-          : {}),
-        ...options.headers,
-      },
-    });
+    let res;
+    try {
+      res = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: {
+          ...(options.body && !(options.body instanceof FormData)
+            ? { 'Content-Type': 'application/json' }
+            : {}),
+          ...options.headers,
+        },
+      });
+    } catch (err) {
+      return {
+        res: { ok: false, status: 0 },
+        data: { ok: false, error: '无法连接服务器，请确认 PageDrop 已启动' },
+      };
+    }
+
+    const text = await res.text();
     let data = null;
     try {
-      data = await res.json();
+      data = text ? JSON.parse(text) : { ok: false, error: '空响应' };
     } catch {
-      data = { ok: false, error: '无效响应' };
+      // HTML 404 from old server or reverse proxy
+      if (res.status === 404 || /Cannot (GET|POST)/i.test(text)) {
+        data = {
+          ok: false,
+          error: '接口不存在（404）。请重启 PageDrop 服务以加载最新版本：npm start',
+        };
+      } else {
+        data = {
+          ok: false,
+          error: `服务器返回了非 JSON 响应（HTTP ${res.status}）`,
+        };
+      }
     }
     return { res, data };
   }
