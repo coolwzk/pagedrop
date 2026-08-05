@@ -1,0 +1,29 @@
+{
+  "name": "pagedrop",
+  "version": "1.0.0",
+  "description": "Drag-and-drop static page hosting — HTML, Markdown, or ZIP → instant shareable link",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node tests/run-all.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "static-hosting",
+    "html",
+    "markdown",
+    "intranet",
+    "drag-drop"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "express": "^4.21.2",
+    "marked": "^15.0.7",
+    "multer": "^2.2.0",
+    "nanoid": "^3.3.11"
+  }
+}

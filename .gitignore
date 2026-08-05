@@ -1,0 +1,10 @@
+node_modules/
+storage/sites/*
+!storage/sites/.gitkeep
+data/*
+!data/.gitkeep
+uploads/
+*.log
+.env
+.DS_Store
+Thumbs.db

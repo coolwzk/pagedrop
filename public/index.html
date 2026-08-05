@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PageDrop — 上传即发布</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a5c3a'/%3E%3Cpath d='M8 18l4-8h8l4 8H8zm4 2h8v2H12v-2z' fill='%23fff'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">PageDrop</span>
+    </div>
+    <span class="badge">内网静态托管</span>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <p class="step-label"><span>01</span> 上传即发布</p>
+      <div class="hero-grid">
+        <h1>把页面拖进来，<br />链接马上就绪。</h1>
+        <p class="hero-desc">
+          无需构建命令，也无需配置服务器。提交 HTML、Markdown 文件或完整 ZIP 静态站点，即刻生成可分享的内网地址。
+        </p>
+      </div>
+    </section>
+
+    <section class="panel user-panel">
+      <label class="field">
+        <span class="field-label">用户名</span>
+        <input
+          id="username"
+          type="text"
+          placeholder="例如：zhangsan"
+          maxlength="32"
+          autocomplete="username"
+          spellcheck="false"
+        />
+        <span class="field-hint">用于归类和查找页面，不是登录账号</span>
+      </label>
+      <div class="panel-aside">
+        <span class="dot"></span>
+        <span id="published-count">已发布页面</span>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div
+        id="dropzone"
+        class="dropzone"
+        tabindex="0"
+        role="button"
+        aria-label="拖拽文件到这里或点击浏览"
+      >
+        <div class="dropzone-inner">
+          <div class="drop-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p class="drop-title">拖拽文件到这里</p>
+          <p class="drop-sub">或 <button type="button" id="browse-btn" class="link-btn">浏览本地文件</button></p>
+          <div class="tags">
+            <span class="tag">HTML</span>
+            <span class="tag">MD</span>
+            <span class="tag">ZIP</span>
+            <span class="tag-hint">ZIP 根目录必须包含 index.html</span>
+          </div>
+          <input id="file-input" type="file" accept=".html,.htm,.md,.markdown,.zip,text/html,text/markdown,application/zip" hidden />
+        </div>
+        <div id="upload-state" class="upload-state hidden">
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="upload-msg">正在发布…</p>
+        </div>
+      </div>
+
+      <aside class="steps-card">
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <div>
+              <strong>提交文件</strong>
+              <p>HTML、Markdown 或 ZIP</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <div>
+              <strong>自动检查</strong>
+              <p>验证入口与文件安全</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <div>
+              <strong>获得链接</strong>
+              <p>新窗口立即打开页面</p>
+            </div>
+          </li>
+        </ol>
+      </aside>
+    </section>
+
+    <section id="result" class="result hidden" aria-live="polite">
+      <div class="result-card">
+        <h2>发布成功</h2>
+        <p id="result-title" class="result-title"></p>
+        <div class="result-url-row">
+          <input id="result-url" type="text" readonly />
+          <button type="button" id="copy-btn" class="btn">复制链接</button>
+          <a id="open-btn" class="btn btn-primary" href="#" target="_blank" rel="noopener">打开页面</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="list-section">
+      <div class="list-header">
+        <h2>最近发布</h2>
+        <button type="button" id="refresh-btn" class="link-btn">刷新</button>
+      </div>
+      <ul id="page-list" class="page-list">
+        <li class="empty">暂无页面，拖入文件开始发布</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>PageDrop · 上传即发布</span>
+  </footer>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/js/app.js"></script>
+</body>
+</html>
