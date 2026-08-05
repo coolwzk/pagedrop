@@ -17,8 +17,8 @@
   const refreshBtn = $('refresh-btn');
   const publishedCount = $('published-count');
   const toastEl = $('toast');
-  const loginPanel = $('login-panel');
-  const appMain = $('app-main');
+  const loginScreen = $('login-screen');
+  const appShell = $('app-shell');
   const authSlot = $('auth-slot');
   const usernameHint = $('username-hint');
 
@@ -103,8 +103,19 @@
   function updateAuthUi() {
     renderAuthSlot();
     const needLogin = authEnabled && !currentUser;
-    loginPanel.classList.toggle('hidden', !needLogin);
-    appMain.classList.toggle('hidden', needLogin);
+
+    // 未登录：只显示全屏居中登录；已登录/开放模式：显示主应用
+    loginScreen?.classList.toggle('hidden', !needLogin);
+    appShell?.classList.toggle('hidden', needLogin);
+
+    if (needLogin) {
+      document.body.classList.add('is-login');
+      document.title = '登录 — PageDrop';
+      setTimeout(() => $('login-username')?.focus(), 50);
+    } else {
+      document.body.classList.remove('is-login');
+      document.title = 'PageDrop — 上传即发布';
+    }
 
     const adminWrap = $('admin-all-wrap');
     if (adminWrap) {
