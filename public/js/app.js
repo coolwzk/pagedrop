@@ -191,18 +191,7 @@
     const { data: me } = await api('/api/auth/me');
     currentUser = me?.user || null;
 
-    const toggleReg = $('toggle-register');
-    const regForm = $('register-form');
-    if (allowRegister && toggleReg) {
-      toggleReg.classList.remove('hidden');
-      toggleReg.onclick = () => {
-        regForm.classList.toggle('hidden');
-        $('login-form').classList.toggle('hidden');
-        toggleReg.textContent = regForm.classList.contains('hidden')
-          ? '没有账号？注册'
-          : '已有账号？登录';
-      };
-    }
+    setupAuthTabs();
 
     updateAuthUi();
     if (currentUser?.mustChangePassword) {
@@ -275,16 +264,78 @@
     loadPages();
   });
 
+  function setupAuthTabs() {
+    const tabs = $('auth-tabs');
+    const tabLogin = $('tab-login');
+    const tabRegister = $('tab-register');
+    const loginForm = $('login-form');
+    const regForm = $('register-form');
+    if (!tabs || !tabLogin || !tabRegister) return;
+
+    if (authEnabled && allowRegister) {
+      tabs.classList.remove('hidden');
+    } else {
+      tabs.classList.add('hidden');
+      loginForm?.classList.remove('hidden');
+      regForm?.classList.add('hidden');
+      return;
+    }
+
+    function showLogin() {
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      tabLogin.setAttribute('aria-selected', 'true');
+      tabRegister.setAttribute('aria-selected', 'false');
+      loginForm?.classList.remove('hidden');
+      regForm?.classList.add('hidden');
+      $('login-error')?.classList.add('hidden');
+      setTimeout(() => $('login-username')?.focus(), 30);
+    }
+
+    function showRegister() {
+      tabRegister.classList.add('active');
+      tabLogin.classList.remove('active');
+      tabRegister.setAttribute('aria-selected', 'true');
+      tabLogin.setAttribute('aria-selected', 'false');
+      regForm?.classList.remove('hidden');
+      loginForm?.classList.add('hidden');
+      $('reg-error')?.classList.add('hidden');
+      setTimeout(() => $('reg-username')?.focus(), 30);
+    }
+
+    tabLogin.onclick = showLogin;
+    tabRegister.onclick = showRegister;
+    showLogin();
+  }
+
   $('register-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const errEl = $('reg-error');
     errEl.classList.add('hidden');
+
+    const username = $('reg-username').value.trim();
+    const password = $('reg-password').value;
+    const password2 = $('reg-password2')?.value || '';
+
+    if (!/^[a-zA-Z0-9_-]{1,32}$/.test(username)) {
+      errEl.textContent = '用户名仅支持 1–32 位字母、数字、下划线或连字符';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (password.length < 6) {
+      errEl.textContent = '密码至少 6 位';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (password !== password2) {
+      errEl.textContent = '两次输入的密码不一致';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
     const { res, data } = await api('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({
-        username: $('reg-username').value.trim(),
-        password: $('reg-password').value,
-      }),
+      body: JSON.stringify({ username, password }),
     });
     if (!res.ok || !data.ok) {
       errEl.textContent = data.error || '注册失败';
@@ -293,7 +344,7 @@
     }
     currentUser = data.user;
     updateAuthUi();
-    toast('注册成功');
+    toast('注册成功，已自动登录');
     loadPages();
   });
 

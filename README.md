@@ -49,7 +49,21 @@ npm start
 - 启动控制台与 `data/INITIAL_CREDENTIALS.txt` 可查看；登录后建议修改密码。
 - 生产环境请设置 `ADMIN_PASSWORD` / `SESSION_SECRET`。
 
-忘记密码可重置：
+### 注册账号
+
+1. 打开 `http://服务器IP:3780/`
+2. 点击 **注册账号**
+3. 填写用户名（字母/数字/`_`/`-`）与密码（≥6 位）
+4. 注册成功后自动登录，即可发布页面
+
+关闭自助注册：
+
+```powershell
+$env:AUTH_ALLOW_REGISTER="false"
+npm start
+```
+
+忘记管理员密码可重置：
 
 ```bash
 npm run reset-admin
@@ -120,7 +134,7 @@ http://192.168.x.x:3780/p/zekai/xxxxx/
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `PUBLIC_URL` | 自动检测局域网 IP | 分享链接根地址 |
 | `AUTH_ENABLED` | `true` | 是否开启登录 |
-| `AUTH_ALLOW_REGISTER` | `false` | 是否开放自助注册 |
+| `AUTH_ALLOW_REGISTER` | `true` | 是否开放自助注册（登录页「注册账号」） |
 | `ADMIN_USERNAME` | `admin` | 引导管理员用户名 |
 | `ADMIN_PASSWORD` | （随机生成） | 引导管理员密码 |
 | `SESSION_SECRET` | （进程内随机） | Cookie 签名密钥，生产必设 |

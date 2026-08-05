@@ -118,6 +118,38 @@ body {
   font-size: 0.9rem;
 }
 
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem;
+  background: #f1efe6;
+  border-radius: 12px;
+}
+
+.auth-tabs.hidden {
+  display: none !important;
+}
+
+.auth-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  background: #fff;
+  color: var(--brand-deep);
+  box-shadow: 0 1px 4px rgba(20, 38, 28, 0.08);
+}
+
 .login-form {
   display: flex;
   flex-direction: column;

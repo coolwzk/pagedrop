@@ -163,6 +163,25 @@ async function main() {
       assert.strictEqual(r.status, 410);
     });
 
+    await test('self-register creates user and logs in', async () => {
+      // ensure register is allowed for this suite
+      config.authAllowRegister = true;
+      const body = JSON.stringify({ username: 'newbie', password: 'secret12' });
+      const r = await request(server, {
+        method: 'POST',
+        path: '/api/auth/register',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        body,
+      });
+      assert.strictEqual(r.status, 201, r.raw);
+      assert.ok(r.json.ok);
+      assert.strictEqual(r.json.user.username, 'newbie');
+      assert.ok(cookieFrom(r.setCookie).includes('pd_session='));
+    });
+
     await test('delete requires auth', async () => {
       // re-publish a fresh page for delete tests
       const boundary = '----pdtest2';

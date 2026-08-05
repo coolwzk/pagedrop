@@ -52,7 +52,8 @@ module.exports = {
 
   // Auth
   authEnabled,
-  authAllowRegister: envBool('AUTH_ALLOW_REGISTER', false),
+  // Self-service registration (intranet-friendly default: on)
+  authAllowRegister: envBool('AUTH_ALLOW_REGISTER', true),
   sessionSecret,
   sessionTtlSeconds: envInt('SESSION_TTL_SECONDS', 60 * 60 * 24 * 7), // 7d
   cookieName: 'pd_session',
