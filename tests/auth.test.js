@@ -37,7 +37,6 @@ const {
   bootstrapAdmin,
   publicUser,
   changePassword,
-  getLoginHints,
   resetAdminPassword,
 } = require('../server/lib/users');
 const { canManagePage } = require('../server/middleware/auth');
@@ -67,11 +66,6 @@ test('bootstrap admin from ADMIN_PASSWORD', () => {
   assert.strictEqual(admin.role, 'admin');
   assert.ok(verifyPassword(admin, 'adminpass'));
   assert.strictEqual(admin.mustChangePassword, false);
-});
-
-test('login hints hide password after custom bootstrap', () => {
-  const hints = getLoginHints();
-  assert.strictEqual(hints.show, false);
 });
 
 test('session roundtrip', () => {
@@ -171,16 +165,12 @@ test('change password', () => {
   assert.ok(!verifyPassword(u, 'secret1'));
 });
 
-test('reset admin and show default hints', () => {
-  // wipe users and bootstrap with default password
+test('reset admin writes credentials file', () => {
   fs.writeFileSync(config.usersDbPath, '[]', 'utf8');
   config.adminPassword = '';
   const result = resetAdminPassword(config.defaultAdminPassword);
   assert.strictEqual(result.username, 'admin');
   assert.strictEqual(result.password, 'admin123');
-  const hints = getLoginHints();
-  assert.strictEqual(hints.show, true);
-  assert.strictEqual(hints.password, 'admin123');
   assert.ok(fs.existsSync(path.join(config.dataDir, 'INITIAL_CREDENTIALS.txt')));
 });
 

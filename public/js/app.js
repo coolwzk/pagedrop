@@ -123,20 +123,6 @@
     }
   }
 
-  function applyLoginHints(hints) {
-    const box = $('login-credentials');
-    if (!box) return;
-    if (hints?.show && hints.username) {
-      box.classList.remove('hidden');
-      $('cred-user').textContent = hints.username;
-      $('cred-pass').textContent = hints.password || '——';
-      $('cred-note').textContent = hints.note || '';
-      $('login-username').placeholder = hints.username;
-    } else {
-      box.classList.add('hidden');
-    }
-  }
-
   function openPasswordModal(forced) {
     const modal = $('password-modal');
     if (!modal) return;
@@ -200,7 +186,6 @@
       allowRegister = !!cfg.allowRegister;
       defaultTtlDays = cfg.defaultTtlDays ?? 30;
       applyTtlOptions(cfg.allowedTtlDays || [0, 1, 7, 30, 90, 365], defaultTtlDays);
-      applyLoginHints(cfg.loginHints);
     }
 
     const { data: me } = await api('/api/auth/me');
@@ -227,26 +212,6 @@
       loadPages();
     }
   }
-
-  // credentials helpers on login card
-  document.querySelectorAll('.cred-copy').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-copy-target');
-      const text = $(id)?.textContent || '';
-      try {
-        await navigator.clipboard.writeText(text);
-        toast('已复制');
-      } catch {
-        toast('复制失败', true);
-      }
-    });
-  });
-
-  $('fill-credentials')?.addEventListener('click', () => {
-    $('login-username').value = $('cred-user')?.textContent || 'admin';
-    $('login-password').value = $('cred-pass')?.textContent || '';
-    $('login-password')?.focus();
-  });
 
   $('pwd-cancel')?.addEventListener('click', () => {
     if (!currentUser?.mustChangePassword) closePasswordModal();

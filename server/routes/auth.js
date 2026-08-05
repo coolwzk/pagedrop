@@ -8,7 +8,6 @@ const {
   verifyPassword,
   publicUser,
   changePassword,
-  getLoginHints,
 } = require('../lib/users');
 const {
   createSessionToken,
@@ -31,14 +30,12 @@ const registerLimiter = createRateLimiter({
 });
 
 router.get('/config', (_req, res) => {
-  const hints = getLoginHints();
   res.json({
     ok: true,
     authEnabled: config.authEnabled,
     allowRegister: config.authAllowRegister,
     defaultTtlDays: config.defaultTtlDays,
     allowedTtlDays: config.allowedTtlDays,
-    loginHints: hints,
   });
 });
 
